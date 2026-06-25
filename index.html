@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSD Converter — Adobe Illustrator & Figma</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #18181f;
+    --surface2: #22222d;
+    --border: #2e2e3e;
+    --accent: #7c6af7;
+    --accent2: #5bc8f5;
+    --success: #3ecf8e;
+    --warn: #f5a623;
+    --danger: #f5455c;
+    --text: #e8e8f0;
+    --muted: #7a7a94;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    max-width: 960px;
+    padding: 36px 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+  h1 span { color: var(--muted); font-weight: 400; font-size: 14px; margin-left: 10px; }
+
+  .tag {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 5px 12px;
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
+
+  main {
+    width: 100%;
+    max-width: 960px;
+    padding: 32px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 56px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: #1d1b2e;
+  }
+  .dropzone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+  }
+  .dz-icon { font-size: 48px; margin-bottom: 14px; display: block; }
+  .dz-title { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .dz-sub { color: var(--muted); font-size: 14px; }
+
+  .progress-wrap {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: none;
+  }
+  .progress-wrap.active { display: block; }
+  .progress-label { font-size: 14px; color: var(--muted); margin-bottom: 10px; }
+  .progress-bar {
+    height: 6px; background: var(--border);
+    border-radius: 99px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  .result-panel {
+    display: none;
+    gap: 24px;
+    flex-direction: column;
+  }
+  .result-panel.active { display: flex; }
+
+  .info-bar {
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    display: flex;
+    gap: 32px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .info-item { display: flex; flex-direction: column; gap: 3px; }
+  .info-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .info-value { font-size: 18px; font-weight: 700; }
+
+  .layer-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .badge-count { font-weight: 700; color: var(--accent2); }
+
+  .export-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .export-row { grid-template-columns: 1fr; } }
+
+  .export-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transition: border-color 0.2s;
+  }
+  .export-card:hover { border-color: var(--accent); }
+
+  .card-header { display: flex; align-items: center; gap: 12px; }
+  .card-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 700; color: white;
+  }
+  .card-icon.ai { background: linear-gradient(135deg, #ff7043, #ff9800); }
+  .card-icon.figma { background: linear-gradient(135deg, #1abcfe, #0acf83); }
+
+  .card-title { font-size: 16px; font-weight: 700; }
+  .card-desc { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  .features { display: flex; flex-direction: column; gap: 6px; }
+  .feature { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .feature::before { content: "✓"; color: var(--success); font-weight: 700; }
+
+  .btn {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px; font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: #9280ff; transform: translateY(-1px); }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover { border-color: var(--accent2); }
+
+  .tree-section {
+    background: var(--surface);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .tree-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .tree-title { font-size: 14px; font-weight: 600; }
+  .tree-scroll { max-height: 320px; overflow-y: auto; padding: 8px; }
+
+  .tree-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .tree-item:hover { background: var(--surface2); }
+  .tree-type-icon { font-size: 14px; min-width: 20px; }
+  .tree-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-tag {
+    font-size: 10px; padding: 1px 6px;
+    border-radius: 4px; background: var(--surface2); color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .tree-item.hidden { opacity: 0.4; }
+
+  .error-box {
+    background: #2a1018;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: #ff8a9b;
+    font-size: 14px;
+    display: none;
+  }
+  .error-box.active { display: block; }
+
+  .reset-row { display: flex; justify-content: center; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 18px; border-radius: 8px;
+    font-size: 13px; cursor: pointer;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--muted); }
+
+  footer {
+    width: 100%;
+    max-width: 960px;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+  }
+  footer a { color: var(--accent2); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">🎨</div>
+    <div>
+      <h1>PSD Converter <span>for Illustrator & Figma</span></h1>
+    </div>
+  </div>
+  <div class="tag"><span class="dot"></span> 100% 브라우저 처리 · 서버 전송 없음</div>
+</header>
+
+<main>
+
+  <!-- Drop Zone -->
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" accept=".psd">
+    <span class="dz-icon">📂</span>
+    <div class="dz-title">PSD 파일을 드래그하거나 클릭하세요</div>
+    <div class="dz-sub">레이어·그룹·텍스트·벡터·이펙트 모두 보존 · 파일은 본인 브라우저에서만 처리됩니다</div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-label" id="progressLabel">파싱 중...</div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Result -->
+  <div class="result-panel" id="resultPanel">
+
+    <div class="info-bar" id="infoBar"></div>
+
+    <div class="export-row">
+      <div class="export-card">
+        <div class="card-header">
+          <div class="card-icon ai">Ai</div>
+          <div><div class="card-title">Adobe Illustrator</div></div>
+        </div>
+        <div class="card-desc">SVG 포맷으로 레이어 구조를 완벽히 보존합니다. Illustrator에서 바로 열면 레이어 패널에 구조 그대로 나타납니다.</div>
+        <div class="features">
+          <div class="feature">그룹/레이어 계층 보존</div>
+          <div class="feature">텍스트 편집 가능</div>
+          <div class="feature">벡터 패스 변환</div>
+          <div class="feature">드롭섀도·글로우 필터</div>
+          <div class="feature">블렌드 모드 매핑</div>
+        </div>
+        <button class="btn btn-primary" onclick="downloadSVG()">⬇ SVG 다운로드</button>
+      </div>
+
+      <div class="export-card">
+        <div class="card-header">
+          <div class="card-icon figma">F</div>
+          <div><div class="card-title">Figma</div></div>
+        </div>
+        <div class="card-desc">Figma 플러그인이 JSON을 읽어 캔버스에 레이어 구조를 재현합니다.</div>
+        <div class="features">
+          <div class="feature">프레임 그룹 변환</div>
+          <div class="feature">텍스트 스타일 보존</div>
+          <div class="feature">이미지 레이어 임베드</div>
+          <div class="feature">이펙트 근사 변환</div>
+          <div class="feature">블렌드 모드 매핑</div>
+        </div>
+        <button class="btn btn-primary" onclick="downloadFigmaJSON()">⬇ Figma JSON 다운로드</button>
+      </div>
+    </div>
+
+    <div class="tree-section">
+      <div class="tree-header">
+        <span class="tree-title">🗂 레이어 구조</span>
+        <span style="font-size:12px;color:var(--muted)" id="treeCount"></span>
+      </div>
+      <div class="tree-scroll" id="treeContainer"></div>
+    </div>
+
+    <div class="reset-row">
+      <button class="btn-ghost" onclick="resetUI()">↩ 다른 파일 변환</button>
+    </div>
+
+  </div>
+
+</main>
+
+<footer>
+  Made with ag-psd · 모든 처리는 본인 브라우저에서 이루어집니다 · 
+  <a href="https://github.com/" target="_blank">GitHub</a>
+</footer>
+
+<!-- ag-psd CDN: PSD 파싱 라이브러리 -->
+<script src="https://unpkg.com/ag-psd@30.2.0/dist/bundle.js"></script>
+<script>
+  // CDN 로드 실패 시 jsdelivr fallback
+  if (typeof agPsd === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/ag-psd@30.2.0/dist/bundle.js"><\/script>');
+  }
+</script>
+<script src="converter.js"></script>
+
+<script>
+let svgContent = null;
+let figmaJson = null;
+let currentFilename = "";
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+
+dropzone.addEventListener("dragover", e => { e.preventDefault(); dropzone.classList.add("drag-over"); });
+dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag-over"));
+dropzone.addEventListener("drop", e => {
+  e.preventDefault();
+  dropzone.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener("change", e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+async function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith(".psd")) {
+    showError("PSD 파일(.psd)만 지원합니다.");
+    return;
+  }
+
+  if (typeof agPsd === 'undefined' || typeof PSDConverter === 'undefined') {
+    showError("PSD 변환 라이브러리를 로드하지 못했습니다. 인터넷 연결을 확인하고 새로고침해 주세요.");
+    return;
+  }
+
+  currentFilename = file.name.replace(/\.psd$/i, "");
+  showProgress("파일 읽는 중...", 15);
+  hideError();
+  hideResult();
+
+  try {
+    // 파일 → ArrayBuffer
+    const buffer = await file.arrayBuffer();
+    showProgress("PSD 파싱 중...", 35);
+
+    // 매크로태스크 양보 (UI 갱신용)
+    await new Promise(r => setTimeout(r, 50));
+
+    showProgress("레이어 변환 중...", 65);
+    await new Promise(r => setTimeout(r, 50));
+
+    // 변환 실행 (동기, CPU 사용)
+    const result = PSDConverter.convert(buffer);
+
+    showProgress("완료!", 100);
+
+    setTimeout(() => {
+      hideProgress();
+      svgContent = result.svg;
+      figmaJson = result.figma_json;
+      renderResult(result, file.name);
+    }, 300);
+
+  } catch (err) {
+    console.error(err);
+    hideProgress();
+    showError("변환 중 오류: " + (err.message || String(err)));
+  }
+}
+
+function renderResult(result, filename) {
+  const { document: doc, stats, figma_json } = result;
+  const types = stats.types || {};
+  const badgeMap = {
+    group: ["📁", "그룹"],
+    text: ["✏️", "텍스트"],
+    shape: ["🔷", "벡터"],
+    pixel: ["🖼", "픽셀"],
+    smart_object: ["📦", "스마트오브젝트"],
+    adjustment: ["🎛", "조정레이어"],
+    fill: ["🎨", "채우기"],
+  };
+
+  document.getElementById("infoBar").innerHTML = `
+    <div class="info-item">
+      <div class="info-label">파일명</div>
+      <div class="info-value" style="font-size:14px">${escapeHtml(filename)}</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">문서 크기</div>
+      <div class="info-value">${doc.width} × ${doc.height}px</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">전체 레이어</div>
+      <div class="info-value">${stats.total_layers}개</div>
+    </div>
+    <div class="info-item">
+      <div class="info-label">레이어 구성</div>
+      <div class="layer-badges">
+        ${Object.entries(types).map(([k, v]) => {
+          const [icon, label] = badgeMap[k] || ["•", k];
+          return `<div class="badge">${icon} <span class="badge-count">${v}</span> ${label}</div>`;
+        }).join("")}
+      </div>
+    </div>
+  `;
+
+  const layers = figma_json.artboard?.children || [];
+  document.getElementById("treeCount").textContent = `${stats.total_layers}개 레이어`;
+  document.getElementById("treeContainer").innerHTML = renderTree(layers, 0);
+
+  document.getElementById("resultPanel").classList.add("active");
+}
+
+function renderTree(layers, depth) {
+  const typeIcons = {
+    GROUP: "📁", TEXT: "✏️", VECTOR: "🔷",
+    RECTANGLE: "🖼", FRAME: "🗂",
+  };
+  let html = "";
+  for (const l of layers) {
+    const icon = typeIcons[l.type] || "•";
+    const hidden = !l.visible ? " hidden" : "";
+    const isAdj = l._is_adjustment ? " (조정)" : "";
+    html += `
+      <div class="tree-item${hidden}" style="padding-left:${10 + depth * 18}px">
+        <span class="tree-type-icon">${icon}</span>
+        <span class="tree-name">${escapeHtml(l.name)}${isAdj}</span>
+        ${!l.visible ? '<span class="tree-tag">숨김</span>' : ""}
+        ${l.opacity < 1 ? `<span class="tree-tag">${Math.round(l.opacity*100)}%</span>` : ""}
+      </div>`;
+    if (l.children?.length) html += renderTree(l.children, depth + 1);
+  }
+  return html;
+}
+
+function downloadSVG() {
+  if (!svgContent) return;
+  const blob = new Blob([svgContent], { type: "image/svg+xml" });
+  triggerDownload(blob, `${currentFilename}_layers.svg`);
+}
+
+function downloadFigmaJSON() {
+  if (!figmaJson) return;
+  const blob = new Blob([JSON.stringify(figmaJson, null, 2)], { type: "application/json" });
+  triggerDownload(blob, `${currentFilename}_figma.json`);
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function showProgress(label, pct) {
+  document.getElementById("progressWrap").classList.add("active");
+  document.getElementById("progressLabel").textContent = label;
+  document.getElementById("progressFill").style.width = pct + "%";
+}
+function hideProgress() { document.getElementById("progressWrap").classList.remove("active"); }
+function showError(msg) {
+  const box = document.getElementById("errorBox");
+  box.textContent = "⚠ " + msg;
+  box.classList.add("active");
+}
+function hideError() { document.getElementById("errorBox").classList.remove("active"); }
+function hideResult() { document.getElementById("resultPanel").classList.remove("active"); }
+function resetUI() {
+  hideResult(); hideError();
+  svgContent = null; figmaJson = null;
+  fileInput.value = "";
+}
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[c]);
+}
+</script>
+</body>
+</html>
