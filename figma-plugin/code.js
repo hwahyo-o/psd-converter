@@ -1,4 +1,4 @@
-figma.showUI(__html__, { width: 380, height: 500, title: "PSD 변환기" });
+figma.showUI(__html__, { width: 380, height: 500 });
 
 var BLEND_MODES = {
   normal: "NORMAL",
@@ -18,6 +18,29 @@ var BLEND_MODES = {
   color: "COLOR",
   luminosity: "LUMINOSITY"
 };
+
+var loadedFonts = {};
+var defaultFont = { family: "Inter", style: "Regular" };
+
+async function loadUsableFont() {
+  var candidates = [
+    { family: "Inter", style: "Regular" },
+    { family: "Roboto", style: "Regular" },
+    { family: "Arial", style: "Regular" }
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    var font = candidates[i];
+    var key = font.family + "__" + font.style;
+    if (loadedFonts[key]) return font;
+    try {
+      await figma.loadFontAsync(font);
+      loadedFonts[key] = true;
+      defaultFont = font;
+      return font;
+    } catch (e) {}
+  }
+  return defaultFont;
+}
 
 function decodeBase64(base64) {
   if (typeof figma.base64Decode === "function") return figma.base64Decode(base64);
@@ -105,9 +128,9 @@ async function createNode(layer, parent, assetsById, report, origin) {
 
   if (kind === "text" && layer.text) {
     node = figma.createText();
-    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+    var font = await loadUsableFont();
     node.name = layer.name || "텍스트";
-    node.fontName = { family: "Inter", style: "Regular" };
+    node.fontName = font;
     node.characters = layer.text.value || "";
     if (layer.text.fontSize) node.fontSize = Math.max(1, Math.round(layer.text.fontSize));
     node.fills = fillFromHex(layer.text.color, [{ type: "SOLID", color: { r: 0.07, g: 0.09, b: 0.12 } }]);
@@ -138,6 +161,7 @@ async function createNode(layer, parent, assetsById, report, origin) {
 
 async function importDocument(documentModel) {
   if (!documentModel || !documentModel.layers) throw new Error("LayerBridge document.json 형식이 아닙니다.");
+  await loadUsableFont();
   var root = figma.createFrame();
   root.name = (documentModel.sourceName || "PSD 가져오기") + " - LayerBridge";
   root.resize(Math.max(1, documentModel.width || 1440), Math.max(1, documentModel.height || 960));
