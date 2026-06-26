@@ -7,10 +7,10 @@ var BLEND_MODES = {
   overlay: "OVERLAY",
   darken: "DARKEN",
   lighten: "LIGHTEN",
-  "color-dodge": "COLOR_DODGE",
-  "color-burn": "COLOR_BURN",
-  "hard-light": "HARD_LIGHT",
-  "soft-light": "SOFT_LIGHT",
+  "color dodge": "COLOR_DODGE",
+  "color burn": "COLOR_BURN",
+  "hard light": "HARD_LIGHT",
+  "soft light": "SOFT_LIGHT",
   difference: "DIFFERENCE",
   exclusion: "EXCLUSION",
   hue: "HUE",
@@ -20,7 +20,6 @@ var BLEND_MODES = {
 };
 
 var loadedFonts = {};
-var defaultFont = { family: "Inter", style: "Regular" };
 
 async function loadUsableFont() {
   var candidates = [
@@ -35,11 +34,14 @@ async function loadUsableFont() {
     try {
       await figma.loadFontAsync(font);
       loadedFonts[key] = true;
-      defaultFont = font;
       return font;
     } catch (e) {}
   }
   return null;
+}
+
+function normalizeBlend(value) {
+  return String(value || "normal").toLowerCase().replace(/_/g, " ").replace(/-/g, " ").trim();
 }
 
 function decodeBase64(base64) {
@@ -66,12 +68,17 @@ function bytesFromDataUrl(dataUrl) {
   return decodeBase64(String(dataUrl || "").split(",")[1] || "");
 }
 
-function fillFromHex(hex, fallback) {
-  if (!hex || hex.charAt(0) !== "#" || hex.length < 7) return fallback;
+function solidFromHex(hex, opacity) {
+  if (!hex || hex.charAt(0) !== "#" || hex.length < 7) return null;
   var r = parseInt(hex.slice(1, 3), 16) / 255;
   var g = parseInt(hex.slice(3, 5), 16) / 255;
   var b = parseInt(hex.slice(5, 7), 16) / 255;
-  return [{ type: "SOLID", color: { r: r, g: g, b: b } }];
+  return { type: "SOLID", color: { r: r, g: g, b: b }, opacity: typeof opacity === "number" ? Math.max(0, Math.min(1, opacity)) : 1 };
+}
+
+function fillFromHex(hex, fallback, opacity) {
+  var paint = solidFromHex(hex, opacity);
+  return paint ? [paint] : fallback;
 }
 
 function applyGeometry(node, layer, origin) {
@@ -83,7 +90,7 @@ function applyGeometry(node, layer, origin) {
   }
   node.visible = layer.visible !== false;
   node.opacity = typeof layer.opacity === "number" ? Math.max(0, Math.min(1, layer.opacity)) : 1;
-  try { node.blendMode = BLEND_MODES[layer.blendMode] || "NORMAL"; } catch (e) {}
+  try { node.blendMode = BLEND_MODES[normalizeBlend(layer.blendMode)] || "NORMAL"; } catch (e) {}
 }
 
 function applyImageFill(node, layer, assetsById) {
@@ -105,11 +112,53 @@ function applyFallbackFill(node, kind) {
   else node.fills = [{ type: "SOLID", color: { r: 0.93, g: 0.95, b: 0.97 } }];
 }
 
+function applyShapeStyle(node, layer) {
+  var shape = layer.shape || {};
+  var fill = solidFromHex(shape.fill, shape.fillOpacity);
+  if (fill) node.fills = [fill];
+  var stroke = solidFromHex(shape.stroke, shape.strokeOpacity);
+  if (stroke && shape.strokeWidth) {
+    node.strokes = [stroke];
+    node.strokeWeight = Math.max(1, Math.round(shape.strokeWidth));
+  }
+}
+
+function applyLayerEffects(node, layer) {
+  var source = layer.figmaEffects || [];
+  var effects = [];
+  for (var i = 0; i < source.length; i++) {
+    var item = source[i];
+    if (item.type === "shadow") {
+      var color = solidFromHex(item.color || "#000000", item.opacity || 0.25);
+      effects.push({
+        type: "DROP_SHADOW",
+        visible: true,
+        color: color ? color.color : { r: 0, g: 0, b: 0 },
+        blendMode: "NORMAL",
+        offset: { x: item.x || 0, y: item.y || 4 },
+        radius: Math.max(0, item.blur || 8),
+        spread: Math.max(0, item.spread || 0)
+      });
+      if (color && typeof color.opacity === "number") effects[effects.length - 1].color.a = color.opacity;
+    }
+    if (item.type === "stroke" && !layer.shape?.stroke) {
+      var stroke = solidFromHex(item.color, item.opacity);
+      if (stroke) {
+        node.strokes = [stroke];
+        node.strokeWeight = Math.max(1, item.width || 1);
+      }
+    }
+  }
+  if (effects.length) node.effects = effects;
+}
+
 function createFallbackRectangle(layer, parent, origin, labelSuffix) {
   var node = figma.createRectangle();
   node.name = (layer.name || "레이어") + (labelSuffix || "");
   applyGeometry(node, layer, origin);
   applyFallbackFill(node, layer.kind || "unknown");
+  applyShapeStyle(node, layer);
+  applyLayerEffects(node, layer);
   parent.appendChild(node);
   return node;
 }
@@ -139,6 +188,7 @@ async function createTextNode(layer, parent, report, origin) {
     if (layer.text.fontSize) node.fontSize = Math.max(1, Math.round(layer.text.fontSize));
     node.fills = fillFromHex(layer.text.color, [{ type: "SOLID", color: { r: 0.07, g: 0.09, b: 0.12 } }]);
     applyGeometry(node, layer, origin);
+    applyLayerEffects(node, layer);
     parent.appendChild(node);
     report.native += 1;
     return node;
@@ -161,6 +211,7 @@ async function createNode(layer, parent, assetsById, report, origin) {
     node.clipsContent = false;
     node.fills = [];
     applyGeometry(node, layer, origin);
+    applyLayerEffects(node, layer);
     parent.appendChild(node);
     var children = layer.children || [];
     for (var i = 0; i < children.length; i++) await createNode(children[i], node, assetsById, report, layerOrigin);
@@ -175,6 +226,8 @@ async function createNode(layer, parent, assetsById, report, origin) {
   applyGeometry(node, layer, origin);
   var hasImage = applyImageFill(node, layer, assetsById);
   if (!hasImage) applyFallbackFill(node, kind);
+  applyShapeStyle(node, layer);
+  applyLayerEffects(node, layer);
   parent.appendChild(node);
 
   var bucket = stateBucket(layer);
