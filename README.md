@@ -1,174 +1,59 @@
-# PSD Converter — Adobe Illustrator & Figma
+# LayerBridge
 
-PSD 파일의 **모든 레이어와 그룹 구조를 유지한 채** SVG(Illustrator)와 Figma로 변환하는 웹 앱입니다.
+LayerBridge는 PSD 파일을 브라우저에서 로컬로 분석하고, Figma 개발용 플러그인이 가져올 수 있는 payload를 만드는 정적 웹 앱입니다.
 
-**100% 브라우저에서 처리됩니다.** 파일이 서버로 전송되지 않으므로 GitHub Pages에 정적 호스팅 가능하고, 보안에도 더 유리합니다.
+배포 URL: https://hwahyo-o.github.io/psd-converter/
 
----
+## 핵심 전제
 
-## 🚀 GitHub Pages로 배포하기 (URL 하나로 사용)
+- PSD 파일은 서버로 업로드되지 않습니다.
+- GitHub Pages에서 바로 실행되는 정적 앱입니다.
+- 변환 기준은 편집성 우선입니다.
+- 마스크, 복잡한 효과, 스마트 오브젝트처럼 Figma 네이티브 원형 보존이 어려운 레이어는 시각 일치를 위해 fallback 이미지/경고 리포트로 처리합니다.
 
-이 가이드대로 따라 하면 약 **5분 안에** 본인의 영구적인 URL이 생깁니다.
-예: `https://본인아이디.github.io/psd-converter`
+## v1 지원 범위
 
-### 사전 준비
-- GitHub 계정 ([github.com](https://github.com) 가입, 무료)
+- PSD v1, RGB, 8bit 파일을 우선 지원합니다.
+- 그룹은 Figma frame 구조로 보존합니다.
+- 텍스트 메타데이터가 있는 레이어는 Figma text node로 가져옵니다.
+- opacity, visibility, bounds, blend mode 같은 기본 메타데이터를 payload에 포함합니다.
+- 마스크, 고급 효과, 스마트 오브젝트, unsupported 레이어는 compatibility report에 표시합니다.
 
----
+## 웹 앱 사용 방법
 
-### 1단계: GitHub에 코드 올리기 (3분)
+1. https://hwahyo-o.github.io/psd-converter/ 에 접속합니다.
+2. PSD 파일을 드롭하거나 선택합니다.
+3. `Analyze PSD`를 클릭합니다.
+4. 레이어 트리, 선택 레이어 mapping, warnings를 확인합니다.
+5. `Build Figma Payload` 또는 `Download Payload`를 클릭합니다.
+6. 다운로드된 zip을 압축 해제합니다.
 
-#### 방법 A: 웹 인터페이스 (가장 쉬움, 추천)
+payload 구성:
 
-1. [github.com/new](https://github.com/new) 접속
-2. **Repository name**에 `psd-converter` 입력
-3. **Public** 선택 (GitHub Pages 무료 플랜은 Public만 가능)
-4. **"Create repository"** 클릭
-5. 다음 화면에서 회색 글씨 **"uploading an existing file"** 링크 클릭
-6. ZIP의 압축을 풀고, **그 안에 있는 모든 파일/폴더**를 드래그해서 업로드
-   - `index.html`, `converter.js`, `figma-plugin/`, `README.md`, `.gitignore`
-   - ⚠️ `psd-converter` 폴더를 통째로가 아니라, **그 내용물**을 업로드
-7. 아래쪽 녹색 **"Commit changes"** 버튼 클릭
+- `manifest.json`: payload 메타데이터
+- `document.json`: Figma plugin이 읽는 문서/레이어/asset 구조
+- `report.json`: compatibility summary와 warnings
+- `assets/`: fallback PNG asset이 있을 때 포함
 
-#### 방법 B: Git 명령어
+## Figma 개발용 플러그인 사용 방법
 
-```bash
-cd psd-converter
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/본인아이디/psd-converter.git
-git push -u origin main
-```
+1. Figma desktop을 실행합니다.
+2. `Plugins > Development > Import plugin from manifest...`를 선택합니다.
+3. 이 저장소의 `figma-plugin/manifest.json`을 선택합니다.
+4. `LayerBridge Importer`를 실행합니다.
+5. 웹 앱에서 받은 payload zip을 압축 해제한 뒤 `document.json`을 선택합니다.
+6. 현재 Figma page에 LayerBridge frame이 생성됩니다.
 
----
+## 실제 PSD 검증 체크리스트
 
-### 2단계: GitHub Pages 활성화 (1분)
+- Photoshop의 레이어 순서와 group 구조가 유사하게 유지되는지 확인합니다.
+- 텍스트 레이어가 가능한 경우 편집 가능한 text node로 생성되는지 확인합니다.
+- 마스크/스마트 오브젝트 레이어가 warning과 fallback으로 표시되는지 확인합니다.
+- `report.json`의 native/partial/fallback/unsupported 수치가 UI 및 Figma import 결과와 일치하는지 확인합니다.
+- 브라우저 개발자 도구 Network 탭에서 PSD 파일이 외부로 업로드되지 않는지 확인합니다.
 
-1. 본인 저장소 페이지 상단의 **"Settings"** 클릭
-2. 좌측 메뉴에서 **"Pages"** 클릭
-3. **"Source"** 섹션에서:
-   - Branch: **main** 선택
-   - Folder: **/ (root)** 선택
-4. **"Save"** 버튼 클릭
-5. 페이지 상단에 잠시 후 다음 메시지가 나타남:
-   > ✅ Your site is live at https://본인아이디.github.io/psd-converter/
+## 개발 메모
 
-   ⏱ 처음에는 1~2분 정도 빌드 시간이 필요. 새로고침해서 확인.
+현재 root `index.html`은 GitHub Pages root 배포에서도 바로 실행되도록 CDN 기반 정적 앱으로 구성되어 있습니다. 저장소에는 Figma development plugin도 함께 포함되어 있습니다.
 
----
-
-### 3단계: 사용하기
-
-#### 웹앱
-브라우저에서 본인의 GitHub Pages URL 접속:
-```
-https://본인아이디.github.io/psd-converter/
-```
-
-PSD 파일을 드래그하면 본인 브라우저에서 즉시 변환됩니다.
-
-#### Figma 플러그인 설치
-1. Figma 데스크탑 앱 실행
-2. 상단 메뉴 → **Plugins → Development → Import plugin from manifest...**
-3. ZIP의 `figma-plugin/manifest.json` 파일 선택
-4. 좌측 메뉴에서 **PSD Importer** 플러그인 실행
-5. 웹앱에서 받은 JSON 파일 업로드 → "Figma에 가져오기" 클릭
-
----
-
-## 🔄 코드 수정 시 자동 재배포
-
-GitHub 저장소에 변경사항을 commit하면 GitHub Pages가 자동으로 재배포합니다. 별도 작업 불필요.
-
----
-
-## ⚙ 작동 방식
-
-```
-[브라우저]
-  ↓ PSD 파일 (드래그앤드롭)
-ag-psd 라이브러리 (CDN에서 로드)
-  ↓ 레이어 트리 파싱
-converter.js
-  ↓ ↓
-SVG 생성  Figma JSON 생성
-  ↓        ↓
-다운로드   Figma 플러그인에 업로드
-```
-
-**핵심:** 모든 처리가 브라우저에서 이루어지므로 서버가 필요 없고, PSD 파일이 외부로 전송되지 않습니다.
-
----
-
-## 지원 항목
-
-| 레이어 타입 | SVG (Illustrator) | Figma |
-|---|---|---|
-| 그룹/폴더 구조 | ✅ `<g>` 중첩 | ✅ Frame 컨테이너 |
-| 텍스트 레이어 | ✅ `<text>` 편집 가능 | ✅ Text 노드 |
-| 벡터 셰이프/패스 | ✅ `<path>` | ✅ Vector |
-| 래스터/픽셀 레이어 | ✅ `<image>` base64 | ✅ Rectangle + 이미지 |
-| 스마트 오브젝트 | ✅ 렌더링 임베드 | ✅ 렌더링 임베드 |
-| 조정 레이어 | ✅ SVG `<filter>` 근사 | ✅ 메타데이터 보존 |
-| 드롭섀도/글로우 | ✅ SVG 필터 | ✅ Figma 이펙트 |
-| 스트로크 이펙트 | ✅ SVG stroke | ✅ Figma stroke |
-| 블렌드 모드 | ✅ CSS mix-blend-mode | ✅ Figma blendMode |
-| 레이어 불투명도/가시성 | ✅ opacity / visibility | ✅ opacity / visible |
-
----
-
-## ⚠️ 제한 사항
-
-브라우저에서만 처리하므로 다음 한계가 있습니다:
-
-- **대용량 PSD**: 100MB 이상 파일은 브라우저 메모리 한계로 처리가 느려지거나 실패할 수 있습니다.
-- **CMYK / Lab / Duotone**: ag-psd 라이브러리가 RGB만 지원. CMYK 파일은 자동으로 RGB로 변환됨.
-- **복잡한 조정 레이어**: SVG/Figma 표현 한계로 근사 변환만 가능.
-- **링크된 스마트 오브젝트**: 임베드된 것만 지원.
-
----
-
-## 🛠 로컬에서 실행
-
-배포 없이 본인 컴퓨터에서만 쓰려면:
-
-```bash
-# 간단: index.html을 더블클릭으로 브라우저에서 열기
-# 또는 간단한 로컬 서버:
-cd psd-converter
-python3 -m http.server 8000
-# 브라우저에서 http://localhost:8000
-```
-
----
-
-## ⚙ 기술 스택
-
-- **PSD 파싱**: [ag-psd](https://github.com/Agamnentzar/ag-psd) (CDN 로드)
-- **변환 로직**: 바닐라 JavaScript (`converter.js`)
-- **UI**: 바닐라 HTML/CSS/JS (`index.html`)
-- **Figma 플러그인**: Figma Plugin API
-- **호스팅**: GitHub Pages (정적 호스팅)
-
----
-
-## ❓ 문제 해결
-
-**GitHub Pages URL이 404를 보임**
-- Settings → Pages에서 Source가 main / (root)로 설정됐는지 확인
-- 처음 활성화 후 1~2분 정도 빌드 시간 필요
-- `index.html`이 저장소 최상위에 있는지 확인
-
-**페이지는 뜨는데 PSD 변환이 안 됨**
-- 브라우저 콘솔(F12)에서 빨간 에러 메시지 확인
-- 인터넷 연결 확인 (ag-psd 라이브러리가 CDN에서 로드되어야 함)
-- 브라우저 새로고침 (Ctrl/Cmd + Shift + R)
-
-**Figma 플러그인 에러**
-- 웹앱에서 받은 **JSON 파일**을 업로드했는지 확인 (PSD가 아님)
-- Figma **데스크탑 앱**에서만 동작 (브라우저 Figma는 개발 플러그인 미지원)
-
-**큰 PSD에서 브라우저가 멈춤**
-- 브라우저 메모리 한계 도달. 더 작은 PSD로 분할하거나 다른 컴퓨터에서 시도
+로컬에서 간단히 확인하려면 `index.html`을 브라우저에서 열거나 정적 서버로 실행하면 됩니다.
