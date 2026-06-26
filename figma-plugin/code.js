@@ -39,7 +39,7 @@ async function loadUsableFont() {
       return font;
     } catch (e) {}
   }
-  return defaultFont;
+  return null;
 }
 
 function decodeBase64(base64) {
@@ -98,6 +98,22 @@ function applyImageFill(node, layer, assetsById) {
   }
 }
 
+function applyFallbackFill(node, kind) {
+  if (kind === "text") node.fills = [{ type: "SOLID", color: { r: 1, g: 0.96, b: 0.78 } }];
+  else if (kind === "shape") node.fills = [{ type: "SOLID", color: { r: 0.88, g: 0.95, b: 0.94 } }];
+  else if (kind === "smart" || kind === "raster") node.fills = [{ type: "SOLID", color: { r: 0.9, g: 0.94, b: 1 } }];
+  else node.fills = [{ type: "SOLID", color: { r: 0.93, g: 0.95, b: 0.97 } }];
+}
+
+function createFallbackRectangle(layer, parent, origin, labelSuffix) {
+  var node = figma.createRectangle();
+  node.name = (layer.name || "레이어") + (labelSuffix || "");
+  applyGeometry(node, layer, origin);
+  applyFallbackFill(node, layer.kind || "unknown");
+  parent.appendChild(node);
+  return node;
+}
+
 function stateBucket(layer) {
   var state = layer && layer.conversion ? layer.conversion.state : "native";
   if (state === "image") return "image";
@@ -105,6 +121,32 @@ function stateBucket(layer) {
   if (state === "partial") return "partial";
   if (state === "unsupported") return "unsupported";
   return "native";
+}
+
+async function createTextNode(layer, parent, report, origin) {
+  var font = await loadUsableFont();
+  if (!font) {
+    createFallbackRectangle(layer, parent, origin, " - 텍스트 대체");
+    report.partial += 1;
+    return null;
+  }
+
+  try {
+    var node = figma.createText();
+    node.name = layer.name || "텍스트";
+    node.fontName = font;
+    node.characters = layer.text.value || "";
+    if (layer.text.fontSize) node.fontSize = Math.max(1, Math.round(layer.text.fontSize));
+    node.fills = fillFromHex(layer.text.color, [{ type: "SOLID", color: { r: 0.07, g: 0.09, b: 0.12 } }]);
+    applyGeometry(node, layer, origin);
+    parent.appendChild(node);
+    report.native += 1;
+    return node;
+  } catch (e) {
+    createFallbackRectangle(layer, parent, origin, " - 텍스트 대체");
+    report.partial += 1;
+    return null;
+  }
 }
 
 async function createNode(layer, parent, assetsById, report, origin) {
@@ -126,29 +168,13 @@ async function createNode(layer, parent, assetsById, report, origin) {
     return node;
   }
 
-  if (kind === "text" && layer.text) {
-    node = figma.createText();
-    var font = await loadUsableFont();
-    node.name = layer.name || "텍스트";
-    node.fontName = font;
-    node.characters = layer.text.value || "";
-    if (layer.text.fontSize) node.fontSize = Math.max(1, Math.round(layer.text.fontSize));
-    node.fills = fillFromHex(layer.text.color, [{ type: "SOLID", color: { r: 0.07, g: 0.09, b: 0.12 } }]);
-    applyGeometry(node, layer, origin);
-    parent.appendChild(node);
-    report.native += 1;
-    return node;
-  }
+  if (kind === "text" && layer.text) return await createTextNode(layer, parent, report, origin);
 
   node = figma.createRectangle();
   node.name = layer.name || "레이어";
   applyGeometry(node, layer, origin);
   var hasImage = applyImageFill(node, layer, assetsById);
-  if (!hasImage) {
-    if (kind === "shape") node.fills = [{ type: "SOLID", color: { r: 0.88, g: 0.95, b: 0.94 } }];
-    else if (kind === "smart" || kind === "raster") node.fills = [{ type: "SOLID", color: { r: 0.9, g: 0.94, b: 1 } }];
-    else node.fills = [{ type: "SOLID", color: { r: 0.93, g: 0.95, b: 0.97 } }];
-  }
+  if (!hasImage) applyFallbackFill(node, kind);
   parent.appendChild(node);
 
   var bucket = stateBucket(layer);
