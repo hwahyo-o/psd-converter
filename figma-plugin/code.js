@@ -126,31 +126,36 @@ function applyShapeStyle(node, layer) {
 function applyLayerEffects(node, layer) {
   var source = layer.figmaEffects || [];
   var effects = [];
+  var supportsSpread = node.type === "RECTANGLE" || node.type === "ELLIPSE" || node.type === "FRAME" || node.type === "COMPONENT" || node.type === "INSTANCE";
   for (var i = 0; i < source.length; i++) {
     var item = source[i];
     if (item.type === "shadow") {
       var color = solidFromHex(item.color || "#000000", item.opacity || 0.25);
-      effects.push({
+      var effect = {
         type: "DROP_SHADOW",
         visible: true,
-        color: color ? color.color : { r: 0, g: 0, b: 0 },
+        color: color ? { r: color.color.r, g: color.color.g, b: color.color.b, a: color.opacity } : { r: 0, g: 0, b: 0, a: 0.25 },
         blendMode: "NORMAL",
         offset: { x: item.x || 0, y: item.y || 4 },
-        radius: Math.max(0, item.blur || 8),
-        spread: Math.max(0, item.spread || 0)
-      });
-      if (color && typeof color.opacity === "number") effects[effects.length - 1].color.a = color.opacity;
+        radius: Math.max(0, item.blur || 8)
+      };
+      if (supportsSpread) effect.spread = Math.max(0, item.spread || 0);
+      effects.push(effect);
     }
     var hasShapeStroke = !!(layer.shape && layer.shape.stroke);
     if (item.type === "stroke" && !hasShapeStroke) {
       var stroke = solidFromHex(item.color, item.opacity);
-      if (stroke) {
-        node.strokes = [stroke];
-        node.strokeWeight = Math.max(1, item.width || 1);
-      }
+      try {
+        if (stroke) {
+          node.strokes = [stroke];
+          node.strokeWeight = Math.max(1, item.width || 1);
+        }
+      } catch (e) {}
     }
   }
-  if (effects.length) node.effects = effects;
+  try {
+    if (effects.length) node.effects = effects;
+  } catch (e) {}
 }
 
 function createFallbackRectangle(layer, parent, origin, labelSuffix) {
@@ -215,7 +220,13 @@ async function createNode(layer, parent, assetsById, report, origin) {
     applyLayerEffects(node, layer);
     parent.appendChild(node);
     var children = layer.children || [];
-    for (var i = 0; i < children.length; i++) await createNode(children[i], node, assetsById, report, layerOrigin);
+    for (var i = children.length - 1; i >= 0; i--) {
+      try {
+        await createNode(children[i], node, assetsById, report, layerOrigin);
+      } catch (e) {
+        report.partial += 1;
+      }
+    }
     report.native += 1;
     return node;
   }
@@ -255,7 +266,13 @@ async function importDocument(documentModel) {
   for (var i = 0; i < assets.length; i++) assetsById[assets[i].id] = assets[i];
   var report = { native: 0, partial: 0, image: 0, unsupported: 0 };
   var layers = documentModel.layers || [];
-  for (var j = 0; j < layers.length; j++) await createNode(layers[j], root, assetsById, report, { x: 0, y: 0 });
+  for (var j = layers.length - 1; j >= 0; j--) {
+    try {
+      await createNode(layers[j], root, assetsById, report, { x: 0, y: 0 });
+    } catch (e) {
+      report.partial += 1;
+    }
+  }
 
   figma.currentPage.selection = [root];
   figma.viewport.scrollAndZoomIntoView([root]);
