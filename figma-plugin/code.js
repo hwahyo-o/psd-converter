@@ -141,7 +141,8 @@ function applyLayerEffects(node, layer) {
       });
       if (color && typeof color.opacity === "number") effects[effects.length - 1].color.a = color.opacity;
     }
-    if (item.type === "stroke" && !layer.shape?.stroke) {
+    var hasShapeStroke = !!(layer.shape && layer.shape.stroke);
+    if (item.type === "stroke" && !hasShapeStroke) {
       var stroke = solidFromHex(item.color, item.opacity);
       if (stroke) {
         node.strokes = [stroke];
